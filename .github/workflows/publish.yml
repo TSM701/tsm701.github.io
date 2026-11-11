@@ -1,0 +1,49 @@
+name: Publish
+
+# Re-renders the BetterAstralParty README daily, so the page follows each release without changes to that repository.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render README
+        run: python3 render.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Keep the rendered page in history
+        run: |
+          git add BetterAstralParty/index.html
+          if ! git diff --cached --quiet; then
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Render BetterAstralParty README"
+            git push
+          fi
+      - name: Collect site
+        run: |
+          mkdir _site
+          cp google*.html _site/
+          cp -r BetterAstralParty _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
